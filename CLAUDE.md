@@ -20,6 +20,12 @@ xcodebuild -project mindmic.xcodeproj -scheme mindmic archive
 
 # Run tests
 xcodebuild test -project mindmic.xcodeproj -scheme mindmic -destination 'platform=macOS'
+
+# Git operations
+git status                          # Check current status
+git add -A                          # Stage all changes
+git commit -m "commit message"      # Commit changes
+git push origin main               # Push to GitHub
 ```
 
 ## Architecture Overview
@@ -123,3 +129,23 @@ When working with the codebase, understand these key service relationships:
 - **WhisperState** coordinates local transcription model management
 - **ScreenCaptureService** provides context for Power Mode features
 - **HotkeyManager** and **MenuBarManager** coordinate user interaction patterns
+
+## Project Maintenance
+
+### Repository Cleanliness
+- **No development scripts**: Debug scripts and setup files should not be committed
+- **No build artifacts**: Xcode user data (`xcuserdata/`) and shared data (`xcshareddata/`) are gitignored
+- **No temporary files**: `.DS_Store`, `.env.template`, and tracking files should not be committed
+- **Clean documentation**: Keep only essential documentation in the repository
+
+### File Structure Guidelines
+- **Core code only**: Only commit production-ready application code
+- **Essential docs**: Keep `CLAUDE.md`, `README.md` if exists, and API documentation
+- **No testing scripts**: Debug and testing Swift scripts should be removed after use
+- **No setup guides**: Temporary setup documentation should not be committed
+
+### Git Workflow
+- **Main branch**: Primary development branch
+- **Clean commits**: Use descriptive commit messages with proper formatting
+- **Regular cleanup**: Remove unnecessary files and directories after development phases
+- **Version control**: Ensure only essential files are tracked in version control
