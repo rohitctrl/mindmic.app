@@ -377,7 +377,7 @@ class WhisperState: NSObject, ObservableObject {
         if var textToPaste = finalPastedText, transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
             if case .trialExpired = licenseViewModel.licenseState {
                 textToPaste = """
-                    Your trial has expired. Upgrade to Mindmic Pro at tryMindmic.com/buy
+                    Your trial has expired. Upgrade to Mindmic Pro at www.mindmic.xyz
                     \n\(textToPaste)
                     """
             }

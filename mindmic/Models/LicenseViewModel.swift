@@ -80,8 +80,32 @@ class LicenseViewModel: ObservableObject {
     }
     
     func openPurchaseLink() {
-        if let url = URL(string: "https://tryMindmic.com/buy") {
+        if let url = URL(string: "https://mindmic.xyz") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    // Create a personalized checkout link
+    func createCheckoutLink(customerEmail: String? = nil) async throws -> URL {
+        let polarService = PolarService()
+
+        do {
+            let checkoutResponse = try await polarService.createCheckoutLink(
+                productId: "mindmic_pro_lifetime", // You may need to adjust this product ID
+                customerEmail: customerEmail
+            )
+
+            guard let url = URL(string: checkoutResponse.url) else {
+                throw LicenseError.checkoutFailed("Invalid checkout URL returned")
+            }
+
+            return url
+        } catch {
+            // If checkout link creation fails, fallback to regular purchase link
+            if let url = URL(string: "https://mindmic.xyz") {
+                return url
+            }
+            throw error
         }
     }
     
@@ -90,22 +114,23 @@ class LicenseViewModel: ObservableObject {
             validationMessage = "Please enter a license key"
             return
         }
-        
+
         isValidating = true
-        
+        validationMessage = nil
+
         do {
-            // First, check if the license is valid and if it requires activation
-            let licenseCheck = try await polarService.checkLicenseRequiresActivation(licenseKey)
-            
+            // Use enhanced validation with better error handling
+            let licenseCheck = try await polarService.validateLicenseKeyWithEnhancedErrors(licenseKey)
+
             if !licenseCheck.isValid {
                 validationMessage = "Invalid license key"
                 isValidating = false
                 return
             }
-            
+
             // Store the license key
             userDefaults.licenseKey = licenseKey
-            
+
             // Handle based on whether activation is required
             if licenseCheck.requiresActivation {
                 // If we already have an activation ID, validate with it
@@ -120,23 +145,23 @@ class LicenseViewModel: ObservableObject {
                         return
                     }
                 }
-                
+
                 // Need to create a new activation
                 let (activationId, limit) = try await polarService.activateLicenseKey(licenseKey)
-                
+
                 // Store activation details
                 userDefaults.activationId = activationId
                 userDefaults.set(true, forKey: "MindmicLicenseRequiresActivation")
                 self.activationsLimit = limit
                 userDefaults.activationsLimit = limit
-                
+
             } else {
                 // This license doesn't require activation (unlimited devices)
                 userDefaults.activationId = nil
                 userDefaults.set(false, forKey: "MindmicLicenseRequiresActivation")
                 self.activationsLimit = licenseCheck.activationsLimit ?? 0
                 userDefaults.activationsLimit = licenseCheck.activationsLimit ?? 0
-                
+
                 // Update the license state for unlimited license
                 licenseState = .licensed
                 validationMessage = "License validated successfully!"
@@ -144,12 +169,12 @@ class LicenseViewModel: ObservableObject {
                 isValidating = false
                 return
             }
-            
+
             // Update the license state for activated license
             licenseState = .licensed
             validationMessage = "License activated successfully!"
             NotificationCenter.default.post(name: .licenseStatusChanged, object: nil)
-            
+
         } catch LicenseError.activationLimitReached(let details) {
             validationMessage = "Activation limit reached: \(details)"
         } catch LicenseError.activationNotRequired {
@@ -159,14 +184,16 @@ class LicenseViewModel: ObservableObject {
             userDefaults.set(false, forKey: "MindmicLicenseRequiresActivation")
             self.activationsLimit = 0
             userDefaults.activationsLimit = 0
-            
+
             licenseState = .licensed
             validationMessage = "License activated successfully!"
             NotificationCenter.default.post(name: .licenseStatusChanged, object: nil)
+        } catch LicenseError.networkError(let details) {
+            validationMessage = "Network error: \(details)"
         } catch {
             validationMessage = error.localizedDescription
         }
-        
+
         isValidating = false
     }
     

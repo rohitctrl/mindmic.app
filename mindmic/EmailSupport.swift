@@ -21,7 +21,7 @@ struct EmailSupport {
 
 
         ## 📋 COMMON ISSUES:
-        Check out our Common Issues page before sending an email: https://tryMindmic.com/common-issues
+        Check out our Common Issues page before sending an email: https://www.mindmic.xyz/
         ------------------------
 
         System Information:

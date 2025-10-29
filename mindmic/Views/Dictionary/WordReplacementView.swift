@@ -360,7 +360,7 @@ struct AddReplacementSheet: View {
                                 Text("Replacement:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("https://tryMindmic.com")
+                                Text("https://www.mindmic.xyz")
                                     .font(.callout)
                             }
                         }

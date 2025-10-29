@@ -1,0 +1,49 @@
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+xcuserdata/
+
+# Build
+build/
+DerivedData/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+
+# Debug files
+debug.log
+*.log
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Carthage
+Carthage/
+
+# CocoaPods
+Pods/
+
+# IDE
+.vscode/
+.idea/
+
+# Backup files
+*~
+*.orig
+*.backup

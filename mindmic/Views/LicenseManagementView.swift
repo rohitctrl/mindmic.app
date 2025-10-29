@@ -4,6 +4,11 @@ struct LicenseManagementView: View {
     @StateObject private var licenseViewModel = LicenseViewModel()
     @Environment(\.colorScheme) private var colorScheme
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+
+    @State private var isCreatingCheckoutLink = false
+    @State private var showingDebugInfo = false
+
+    private let polarService = PolarService()
     
     var body: some View {
         ScrollView {
@@ -83,7 +88,7 @@ struct LicenseManagementView: View {
                         .buttonStyle(.plain)
                         
                         Button {
-                            if let url = URL(string: "https://tryMindmic.com/docs") {
+                            if let url = URL(string: "https://www.mindmic.xyz") {
                                 NSWorkspace.shared.open(url)
                             }
                         } label: {
@@ -92,7 +97,7 @@ struct LicenseManagementView: View {
                         .buttonStyle(.plain)
                         
                         Button {
-                            if let url = URL(string: "https://buymeacoffee.com/beingpax") {
+                            if let url = URL(string: "https://buymeacoffee.com/rohiit") {
                                 NSWorkspace.shared.open(url)
                             }
                         } label: {
@@ -124,18 +129,40 @@ struct LicenseManagementView: View {
                 .background(Color.blue.opacity(0.1))
                 .cornerRadius(12)
                 
-                // Purchase Button 
+                // Purchase Button
                 Button(action: {
-                    if let url = URL(string: "https://tryMindmic.com/buy") {
-                        NSWorkspace.shared.open(url)
+                    Task {
+                        isCreatingCheckoutLink = true
+                        do {
+                            let checkoutURL = try await licenseViewModel.createCheckoutLink()
+                            await MainActor.run {
+                                NSWorkspace.shared.open(checkoutURL)
+                                isCreatingCheckoutLink = false
+                            }
+                        } catch {
+                            await MainActor.run {
+                                // Fallback to regular purchase link
+                                if let url = URL(string: "https://www.mindmic.xyz") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                                isCreatingCheckoutLink = false
+                            }
+                        }
                     }
                 }) {
-                    Text("Upgrade to Mindmic Pro")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                    HStack {
+                        if isCreatingCheckoutLink {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text("Upgrade to Mindmic Pro")
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(isCreatingCheckoutLink)
                 
                 // Features Grid
                 HStack(spacing: 40) {
@@ -185,7 +212,7 @@ struct LicenseManagementView: View {
             .padding(32)
             .background(CardBackground(isSelected: false))
             .shadow(color: .black.opacity(0.05), radius: 10)
-            
+
             // Already Purchased Section
             VStack(spacing: 20) {
                 Text("Already purchased?")
@@ -211,6 +238,87 @@ struct LicenseManagementView: View {
             .padding(32)
             .background(CardBackground(isSelected: false))
             .shadow(color: .black.opacity(0.05), radius: 10)
+
+            // Debug Information Section (Development Only)
+            #if DEBUG
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Debug Information")
+                        .font(.headline)
+
+                    Spacer()
+
+                    Button(action: {
+                        showingDebugInfo.toggle()
+                    }) {
+                        Image(systemName: showingDebugInfo ? "chevron.up" : "chevron.down")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if showingDebugInfo {
+                    VStack(alignment: .leading, spacing: 12) {
+                        let apiInfo = polarService.getAPIInfo()
+
+                        HStack {
+                            Text("API Mode:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(apiInfo.isSandbox ? "Sandbox" : "Production")
+                                .font(.monospaced(.subheadline)())
+                                .foregroundColor(apiInfo.isSandbox ? .orange : .green)
+                        }
+
+                        HStack {
+                            Text("Base URL:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(apiInfo.baseURL)
+                                .font(.monospaced(.caption)())
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+                        }
+
+                        HStack {
+                            Text("Organization ID:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(apiInfo.organizationId)
+                                .font(.monospaced(.caption)())
+                                .foregroundColor(.secondary)
+                                .textSelection(.enabled)
+                        }
+
+                        HStack {
+                            Text("API Token:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(apiInfo.hasToken ? "✅ Configured" : "❌ Missing")
+                                .font(.monospaced(.subheadline)())
+                                .foregroundColor(apiInfo.hasToken ? .green : .red)
+                        }
+
+                        HStack {
+                            Text("License State:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(String(describing: licenseViewModel.licenseState))
+                                .font(.monospaced(.caption)())
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .padding(32)
+            .background(CardBackground(isSelected: false))
+            .shadow(color: .black.opacity(0.05), radius: 10)
+            #endif
         }
     }
     
