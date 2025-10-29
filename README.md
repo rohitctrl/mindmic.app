@@ -173,29 +173,9 @@ Set up global hotkeys for:
 - **Network**: Optional, for cloud AI services
 - **File access**: For saving transcriptions
 
-## 💬 Support
-
-### **Getting Help**
-- **Documentation**: [CLAUDE.md](./CLAUDE.md) for developers
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/rohitctrl/mindmic.app/issues)
-- **Discussions**: Join our [GitHub Discussions](https://github.com/rohitctrl/mindmic.app/discussions)
-
-### **Troubleshooting**
-- **Audio not working**: Check microphone permissions in System Settings
-- **Poor accuracy**: Try Power Mode or switch AI providers
-- **App crashes**: Check system logs and report issues
-- **Export problems**: Verify file permissions and disk space
-
-### **Feature Requests**
-We'd love to hear your ideas! Submit feature requests on [GitHub Issues](https://github.com/rohitctrl/mindmic.app/issues) with the "enhancement" label.
-
 ## 📄 License
 
 MindMic is available under a commercial license. See the [LICENSE](./LICENSE) file for details.
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for information on how to get started.
 
 ## 📊 Version History
 
