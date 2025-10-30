@@ -184,8 +184,8 @@ struct mindmicApp: App {
         } label: {
             let image: NSImage = {
                 let ratio = $0.size.height / $0.size.width
-                $0.size.height = 22
-                $0.size.width = 22 / ratio
+                $0.size.height = 37
+                $0.size.width = 37 / ratio
                 return $0
             }(NSImage(named: "menuBarIcon")!)
 

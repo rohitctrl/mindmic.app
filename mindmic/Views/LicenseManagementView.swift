@@ -6,7 +6,6 @@ struct LicenseManagementView: View {
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
 
     @State private var isCreatingCheckoutLink = false
-    @State private var showingDebugInfo = false
 
     private let polarService = PolarService()
     
@@ -71,15 +70,7 @@ struct LicenseManagementView: View {
                         }
                         .buttonStyle(.plain)
                         
-                        Button {
-                            if let url = URL(string: "https://discord.gg/xryDy57nYD") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        } label: {
-                            featureItem(icon: "bubble.left.and.bubble.right.fill", title: "Discord", color: .purple)
-                        }
-                        .buttonStyle(.plain)
-                        
+                          
                         Button {
                             EmailSupport.openSupportEmail()
                         } label: {
@@ -239,87 +230,7 @@ struct LicenseManagementView: View {
             .background(CardBackground(isSelected: false))
             .shadow(color: .black.opacity(0.05), radius: 10)
 
-            // Debug Information Section (Development Only)
-            #if DEBUG
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("Debug Information")
-                        .font(.headline)
-
-                    Spacer()
-
-                    Button(action: {
-                        showingDebugInfo.toggle()
-                    }) {
-                        Image(systemName: showingDebugInfo ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                if showingDebugInfo {
-                    VStack(alignment: .leading, spacing: 12) {
-                        let apiInfo = polarService.getAPIInfo()
-
-                        HStack {
-                            Text("API Mode:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(apiInfo.isSandbox ? "Sandbox" : "Production")
-                                .font(.monospaced(.subheadline)())
-                                .foregroundColor(apiInfo.isSandbox ? .orange : .green)
-                        }
-
-                        HStack {
-                            Text("Base URL:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(apiInfo.baseURL)
-                                .font(.monospaced(.caption)())
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
-                        }
-
-                        HStack {
-                            Text("Organization ID:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(apiInfo.organizationId)
-                                .font(.monospaced(.caption)())
-                                .foregroundColor(.secondary)
-                                .textSelection(.enabled)
-                        }
-
-                        HStack {
-                            Text("API Token:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(apiInfo.hasToken ? "✅ Configured" : "❌ Missing")
-                                .font(.monospaced(.subheadline)())
-                                .foregroundColor(apiInfo.hasToken ? .green : .red)
-                        }
-
-                        HStack {
-                            Text("License State:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(String(describing: licenseViewModel.licenseState))
-                                .font(.monospaced(.caption)())
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-            .padding(32)
-            .background(CardBackground(isSelected: false))
-            .shadow(color: .black.opacity(0.05), radius: 10)
-            #endif
-        }
+          }
     }
     
     private var activatedContent: some View {

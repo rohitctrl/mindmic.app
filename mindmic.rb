@@ -2,10 +2,10 @@ cask "mindmic" do
   version "2.0"
   sha256 :no_check  # Will be updated with actual SHA256 during release
 
-  url "https://github.com/rohit1906/mind-mic/releases/download/v#{version}/MindMic-#{version}-unsigned.dmg"
+  url "https://github.com/rohitctrl/mind-mic/releases/download/v#{version}/MindMic-#{version}-unsigned.dmg"
   name "MindMic"
   desc "AI-powered voice transcription and enhancement application"
-  homepage "https://github.com/rohit1906/mind-mic"
+  homepage "https://github.com/rohitctrl/mind-mic"
 
   app "MindMic.app"
 
@@ -33,6 +33,6 @@ cask "mindmic" do
     The source code is publicly available for review at #{homepage}.
 
     For help with installation, visit:
-    https://github.com/rohit1906/mind-mic/blob/main/INSTALLATION.md
+    https://github.com/rohitctrl/mind-mic/blob/main/INSTALLATION.md
   EOS
 end
