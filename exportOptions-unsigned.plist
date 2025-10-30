@@ -1,0 +1,8 @@
+
+Now let me try a different approach. Instead of trying to fix the export process, let me extract the app directly from the archive and manually create the distribution files:
+<tool_call>terminal
+<arg_key>command</arg_key>
+<arg_value>cp -R build-unsigned/mindmic.xcarchive/Products/Applications/MindMic.app build-unsigned/</arg_value>
+<arg_key>cd</arg_key>
+<arg_value>/Users/rohit/Documents/mind-mic</arg_value>
+</tool_call>

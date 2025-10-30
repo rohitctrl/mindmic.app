@@ -1,0 +1,369 @@
+name: Free Distribution Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 2.0.0)'
+        required: true
+        type: string
+      create_homebrew_update:
+        description: 'Create Homebrew cask update PR'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-unsigned:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Configure Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+
+    - name: Set up environment variables
+      run: |
+        if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Extract version from tag (remove 'v' prefix)
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        else
+          VERSION="${{ github.event.inputs.version }}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+        echo "DMG_NAME=MindMic" >> $GITHUB_ENV
+
+    - name: Update build version
+      run: |
+        # Update marketing version in Xcode project
+        agvtool new-marketing-version "$VERSION"
+        # Update build version
+        agvtool new-version -all "$BUILD_NUMBER"
+        echo "Updated version to: $VERSION ($BUILD_NUMBER)"
+
+    - name: Clean build directory
+      run: |
+        rm -rf build-unsigned
+        mkdir -p build-unsigned
+
+    - name: Build unsigned archive
+      run: |
+        xcodebuild archive \
+          -project mindmic.xcodeproj \
+          -scheme mindmic \
+          -configuration Release \
+          -archivePath build-unsigned/mindmic.xcarchive \
+          -destination "generic/platform=macOS" \
+          ONLY_ACTIVE_ARCH=NO \
+          VALID_ARCHS="arm64" \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
+
+    - name: Export unsigned app
+      run: |
+        # Create export options for unsigned build
+        cat > export-options-unsigned.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>stripSwiftSymbols</key>
+            <string>false</string>
+            <key>thinning</key>
+            <string>&lt;none&gt;</string>
+        </dict>
+        </plist>
+        EOF
+
+        xcodebuild -exportArchive \
+          -archivePath build-unsigned/mindmic.xcarchive \
+          -exportPath build-unsigned \
+          -exportOptionsPlist export-options-unsigned.plist
+
+    - name: Remove quarantine attributes
+      run: |
+        if [ -d "build-unsigned/MindMic.app" ]; then
+          xattr -d com.apple.quarantine build-unsigned/MindMic.app 2>/dev/null || true
+        fi
+
+    - name: Create DMG
+      run: |
+        # Create DMG folder
+        mkdir -p build-unsigned/dmg_temp
+
+        # Copy app to DMG folder
+        cp -R build-unsigned/MindMic.app build-unsigned/dmg_temp/
+
+        # Create Applications symlink
+        ln -s /Applications build-unsigned/dmg_temp/Applications
+
+        # Create installation instructions
+        cat > build-unsigned/dmg_temp/INSTALL-README.txt << 'EOF'
+MindMic Installation Instructions
+
+⚠️  IMPORTANT: This is an unsigned application
+
+macOS will show a security warning when you first try to open MindMic.
+This is normal for unsigned applications.
+
+HOW TO INSTALL:
+1. Drag MindMic.app to your Applications folder
+2. Right-click on MindMic.app and select "Open"
+3. Click "Open" in the security dialog
+4. Grant microphone and screen recording permissions when prompted
+
+FOR MORE HELP:
+- Visit: https://github.com/rohit1906/mind-mic
+- Check the INSTALLATION.md file for detailed instructions
+
+Thank you for using MindMic!
+EOF
+
+        # Create DMG
+        hdiutil create \
+          -srcfolder build-unsigned/dmg_temp \
+          -volname "MindMic" \
+          -fs HFS+ \
+          -fsargs "-c c=64,a=16,e=16" \
+          -format UDBZ \
+          "build-unsigned/MindMic-$VERSION-unsigned.dmg"
+
+        # Get DMG size
+        DMG_SIZE=$(stat -f%z "build-unsigned/MindMic-$VERSION-unsigned.dmg")
+        echo "DMG_SIZE=$DMG_SIZE" >> $GITHUB_ENV
+        echo "DMG size: $DMG_SIZE bytes"
+
+    - name: Create ZIP archive
+      run: |
+        cd build-unsigned
+        zip -r "MindMic-$VERSION-unsigned.zip" "MindMic.app"
+        cd ..
+
+        if [ -f "build-unsigned/MindMic-$VERSION-unsigned.zip" ]; then
+          ZIP_SHA256=$(shasum -a 256 "build-unsigned/MindMic-$VERSION-unsigned.zip" | awk '{print $1}')
+          echo "ZIP_SHA256=$ZIP_SHA256" >> $GITHUB_ENV
+        fi
+
+    - name: Generate checksums
+      run: |
+        # Generate SHA256 checksums
+        DMG_SHA256=$(shasum -a 256 "build-unsigned/MindMic-$VERSION-unsigned.dmg" | awk '{print $1}')
+        ZIP_SHA256=$(shasum -a 256 "build-unsigned/MindMic-$VERSION-unsigned.zip" | awk '{print $1}')
+
+        echo "DMG_SHA256=$DMG_SHA256" >> $GITHUB_ENV
+        echo "ZIP_SHA256=$ZIP_SHA256" >> $GITHUB_ENV
+
+        # Create checksums file
+        cat > build-unsigned/checksums.txt << EOF
+$DMG_SHA256  MindMic-$VERSION-unsigned.dmg
+$ZIP_SHA256  MindMic-$VERSION-unsigned.zip
+EOF
+
+        echo "Checksums generated:"
+        echo "DMG: $DMG_SHA256"
+        echo "ZIP: $ZIP_SHA256"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-build-artifacts
+        path: |
+          build-unsigned/*.dmg
+          build-unsigned/*.zip
+          build-unsigned/checksums.txt
+          build-unsigned/mindmic.xcarchive
+        retention-days: 30
+
+    - name: Generate release info
+      run: |
+        cat > build-unsigned/release-info.json << EOF
+        {
+          "version": "$VERSION",
+          "build": "$BUILD_NUMBER",
+          "dmg_name": "MindMic-$VERSION-unsigned.dmg",
+          "zip_name": "MindMic-$VERSION-unsigned.zip",
+          "dmg_size": "$DMG_SIZE",
+          "dmg_sha256": "$DMG_SHA256",
+          "zip_sha256": "$ZIP_SHA256",
+          "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "min_system_version": "14.0",
+          "unsigned": true
+        }
+        EOF
+
+        cat build-unsigned/release-info.json
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        name: MindMic ${{ env.VERSION }} (Free Distribution)
+        body: |
+          ## MindMic ${{ env.VERSION }} - Free Distribution
+
+          ### 🚀 Installation Options
+
+          **Option 1: Direct Download (Recommended)**
+          - Download `MindMic-${{ env.VERSION }}-unsigned.dmg` below
+          - See [INSTALLATION.md](https://github.com/rohit1906/mind-mic/blob/main/INSTALLATION.md) for detailed instructions
+
+          **Option 2: Homebrew**
+          ```bash
+          brew tap rohit1906/homebrew-tap
+          brew install --cask mindmic
+          ```
+
+          ### ⚠️  Important: Unsigned Application
+
+          This release is **unsigned** to avoid Apple Developer fees. You'll see security warnings during installation - this is normal and safe.
+
+          **Quick Installation:**
+          1. Download DMG file below
+          2. Right-click MindMic.app → Open (don't double-click)
+          3. Click "Open" in security dialog
+          4. Grant microphone and screen recording permissions
+
+          ### 🔐 Security & Verification
+
+          - **DMG SHA256**: `${{ env.DMG_SHA256 }}`
+          - **ZIP SHA256**: `${{ env.ZIP_SHA256 }}`
+          - **Open Source**: Code publicly available for review
+          - **No malware**: Unsigned ≠ malicious
+
+          **Verify your download:**
+          ```bash
+          shasum -a 256 ~/Downloads/MindMic-${{ env.VERSION }}-unsigned.dmg
+          ```
+
+          ### 📋 System Requirements
+          - macOS 14.0+ (Sonoma or later)
+          - Apple Silicon (M1/M2/M3) or Intel Mac
+          - Microphone access for recording
+          - Screen recording permission for Power Mode
+
+          ### 🆘 Installation Help
+
+          - [📖 Full Installation Guide](https://github.com/rohit1906/mind-mic/blob/main/INSTALLATION.md)
+          - [❓ Unsigned App FAQ](https://github.com/rohit1906/mind-mic/blob/main/UNSIGNED-APP-FAQ.md)
+          - [🐛 Report Issues](https://github.com/rohit1906/mind-mic/issues)
+
+          ### 📦 Files
+
+          - `MindMic-${{ env.VERSION }}-unsigned.dmg` - Recommended installer
+          - `MindMic-${{ env.VERSION }}-unsigned.zip` - Alternative format
+          - `checksums.txt` - File integrity verification
+
+          ---
+          *Free distribution without Apple Developer fees. For security information, see the Unsigned App FAQ.*
+        files: |
+          build-unsigned/MindMic-${{ env.VERSION }}-unsigned.dmg
+          build-unsigned/MindMic-${{ env.VERSION }}-unsigned.zip
+          build-unsigned/checksums.txt
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    needs: build-unsigned
+    runs-on: macos-latest
+    if: (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && (github.event.inputs.create_homebrew_update == 'true' || startsWith(github.ref, 'refs/tags/'))
+
+    steps:
+    - name: Checkout tap repository
+      uses: actions/checkout@v4
+      with:
+        repository: rohit1906/homebrew-tap
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
+
+    - name: Download release info
+      uses: actions/download-artifact@v4
+      with:
+        name: unsigned-build-artifacts
+        path: artifacts
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update cask formula
+      run: |
+        # Read release info
+        VERSION="${{ github.event_name == 'push' && github.ref_name || github.event.inputs.version }}"
+        if [ -z "$VERSION" ]; then
+          VERSION=$(cat artifacts/release-info.json | jq -r '.version')
+        fi
+
+        DMG_SHA256=$(cat artifacts/release-info.json | jq -r '.dmg_sha256')
+
+        echo "Updating MindMic cask to version $VERSION"
+        echo "SHA256: $DMG_SHA256"
+
+        # Update the cask file
+        sed -i '' "s/version \"[^\"]*\"/version \"$VERSION\"/" "Casks/mindmic.rb"
+        sed -i '' "s/sha256 :no_check/sha256 \"$DMG_SHA256\"/" "Casks/mindmic.rb"
+        sed -i '' "s/url \"[^\"]*v#{version}[^\"]*\"/url \"https:\/\/github.com\/rohit1906\/mind-mic\/releases\/download\/v#{version}\/MindMic-#{version}-unsigned.dmg\"/" "Casks/mindmic.rb"
+
+        echo "Updated Casks/mindmic.rb:"
+        cat "Casks/mindmic.rb"
+
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add "Casks/mindmic.rb"
+        git commit -m "Update mindmic to version $VERSION
+
+        - Update to version $VERSION
+        - Update SHA256 checksum
+        - Update download URL for unsigned distribution
+
+        Users can update with: brew upgrade --cask mindmic"
+        git push
+
+    - name: Create PR (if using different token)
+      if: env.HOMEBREW_TAP_TOKEN != ''
+      run: |
+        echo "Homebrew cask updated successfully!"
+        echo "Users can update with: brew upgrade --cask mindmic"
+
+  notify-completion:
+    needs: [build-unsigned, update-homebrew]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+    - name: Notify completion
+      run: |
+        echo "✅ Free distribution release completed!"
+        echo ""
+        echo "📦 Release Information:"
+        echo "  - Version: ${{ needs.build-unsigned.outputs.version || '2.0' }}"
+        echo "  - Unsigned distribution without Apple Developer fees"
+        echo ""
+        echo "🚀 Installation Options:"
+        echo "  1. Direct download from GitHub releases"
+        echo "  2. Homebrew: brew tap rohit1906/homebrew-tap && brew install --cask mindmic"
+        echo ""
+        echo "📋 User Resources:"
+        echo "  - INSTALLATION.md - Complete installation guide"
+        echo "  - UNSIGNED-APP-FAQ.md - Security education"
+        echo "  - GitHub issues - Support and bug reports"
+        echo ""
+        echo "⚠️  Important:"
+        echo "  - Users will see Gatekeeper warnings (normal for unsigned apps)"
+        echo "  - Provide clear installation instructions"
+        echo "  - Emphasize open source transparency and security"
