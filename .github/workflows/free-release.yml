@@ -41,6 +41,14 @@ jobs:
           echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
           echo "DMG_NAME=MindMic" >> $GITHUB_ENV
 
+      - name: Build Whisper XCFramework
+        run: |
+          echo "Building Whisper XCFramework..."
+          cd whisper.cpp
+          bash -x build-xcframework.sh 2>&1 | tail -20
+          echo "Whisper XCFramework built successfully"
+          ls -la build-apple/
+
       - name: Update build version
         run: |
           # Update marketing version in Xcode project
