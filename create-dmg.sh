@@ -156,6 +156,26 @@ EOF
         log_info "Copied existing license file"
     fi
 
+    # Copy DMG installation README
+    if [ -f "DMG_INSTALLATION.md" ]; then
+        cp "DMG_INSTALLATION.md" "$TEMP_DMG_DIR/README.txt"
+        log_info "Copied DMG installation README"
+    else
+        # Create a basic installation guide if the file doesn't exist
+        cat > "$TEMP_DMG_DIR/README.txt" << EOF
+MindMic - Quick Installation Guide
+
+1. Drag MindMic.app to the Applications folder
+2. Open MindMic from Applications or Launchpad
+3. Grant microphone permission when prompted
+4. Configure your preferred settings
+5. Start recording by pressing ⌃⌥Space (default hotkey)
+
+For detailed help, visit: https://github.com/rohitctrl/mindmic.app
+EOF
+        log_info "Created basic installation guide"
+    fi
+
     # Set folder permissions
     chmod -R 755 "$TEMP_DMG_DIR"
     log_info "Set folder permissions"
@@ -221,6 +241,7 @@ tell application "Finder"
         -- Set icon positions
         set the position of item "$APP_NAME.app" to {150, 300}
         set the position of item "Applications" to {450, 300}
+        set the position of item "README.txt" to {150, 180}
 
         -- Set icon sizes
         set icon size of view options of container window to $DMG_ICON_SIZE
@@ -297,6 +318,7 @@ display_info() {
         log_info "DMG Contents:"
         log_info "  - $APP_NAME.app (application)"
         log_info "  - Applications (shortcut to /Applications)"
+        log_info "  - README.txt (installation guide)"
         log_info "  - LICENSE.txt (license information)"
     fi
 
