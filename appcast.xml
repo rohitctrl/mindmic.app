@@ -18,7 +18,7 @@
                 </ul>
 
             ]]></description>
-            <enclosure url="https://github.com/rohitctrl/mindmic.app/releases/latest/download/MindMic-Final-Named.dmg" length="55571758" type="application/octet-stream"/>
+            <enclosure url="https://github.com/rohitctrl/mindmic.app/releases/latest/download/mindmic.dmg" length="55571758" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>
