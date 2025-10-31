@@ -3,11 +3,11 @@ name: Release and Distribute
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 2.0.0)'
+        description: "Release version (e.g., 2.0.0)"
         required: true
         type: string
 
@@ -16,184 +16,180 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Configure Xcode
-      uses: maxim-lobanov/setup-xcode@v1
-      with:
-        xcode-version: latest-stable
+      - name: Configure Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
-    - name: Set up environment variables
-      run: |
-        if [[ "${{ github.event_name }}" == "push" ]]; then
-          # Extract version from tag (remove 'v' prefix)
-          VERSION="${GITHUB_REF#refs/tags/v}"
-        else
-          VERSION="${{ github.event.inputs.version }}"
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
-        echo "DMG_NAME=MindMic" >> $GITHUB_ENV
+      - name: Set up environment variables
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Extract version from tag (remove 'v' prefix)
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "DMG_NAME=MindMic" >> $GITHUB_ENV
 
-    - name: Update build version
-      run: |
-        # Update marketing version in Xcode project
-        agvtool new-marketing-version "$VERSION"
+      - name: Update build version
+        run: |
+          # Update marketing version in Xcode project
+          agvtool new-marketing-version "$VERSION"
 
-        # Update build version
-        agvtool new-version -all "$BUILD_NUMBER"
+          # Update build version
+          agvtool new-version -all "$BUILD_NUMBER"
 
-        echo "Updated version to: $VERSION ($BUILD_NUMBER)"
+          echo "Updated version to: $VERSION ($BUILD_NUMBER)"
 
-    - name: Clean build directory
-      run: |
-        rm -rf build
-        mkdir -p build
+      - name: Clean build directory
+        run: |
+          rm -rf build
+          mkdir -p build
 
-    - name: Build archive
-      run: |
-        xcodebuild archive \
-          -project mindmic.xcodeproj \
-          -scheme mindmic \
-          -configuration Release \
-          -archivePath build/mindmic.xcarchive \
-          -destination "generic/platform=macOS" \
-          ONLY_ACTIVE_ARCH=NO \
-          VALID_ARCHS="arm64" \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO
+      - name: Build archive
+        run: |
+          xcodebuild archive \
+            -project mindmic.xcodeproj \
+            -scheme mindmic \
+            -configuration Release \
+            -archivePath build/mindmic.xcarchive \
+            -destination "generic/platform=macOS" \
+            ONLY_ACTIVE_ARCH=NO \
+            VALID_ARCHS="arm64" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
-    - name: Export app (unsigned for CI)
-      run: |
-        # Create export options for unsigned build (CI will sign later)
-        cat > export-options-ci.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>destination</key>
-            <string>export</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>thinning</key>
-            <string>&lt;none&gt;</string>
-        </dict>
-        </plist>
-        EOF
+      - name: Export app (unsigned for CI)
+        run: |
+          # Create export options for unsigned build (CI will sign later)
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > export-options-ci.plist
+          echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> export-options-ci.plist
+          echo '<plist version="1.0">' >> export-options-ci.plist
+          echo '<dict>' >> export-options-ci.plist
+          echo '    <key>method</key>' >> export-options-ci.plist
+          echo '    <string>development</string>' >> export-options-ci.plist
+          echo '    <key>signingStyle</key>' >> export-options-ci.plist
+          echo '    <string>automatic</string>' >> export-options-ci.plist
+          echo '    <key>destination</key>' >> export-options-ci.plist
+          echo '    <string>export</string>' >> export-options-ci.plist
+          echo '    <key>stripSwiftSymbols</key>' >> export-options-ci.plist
+          echo '    <true/>' >> export-options-ci.plist
+          echo '    <key>thinning</key>' >> export-options-ci.plist
+          echo '    <string>&lt;none&gt;</string>' >> export-options-ci.plist
+          echo '</dict>' >> export-options-ci.plist
+          echo '</plist>' >> export-options-ci.plist
 
-        xcodebuild -exportArchive \
-          -archivePath build/mindmic.xcarchive \
-          -exportPath build \
-          -exportOptionsPlist export-options-ci.plist
+          xcodebuild -exportArchive \
+            -archivePath build/mindmic.xcarchive \
+            -exportPath build \
+            -exportOptionsPlist export-options-ci.plist
 
-    - name: Create DMG
-      run: |
-        # Create DMG folder
-        mkdir -p build/dmg_temp
+      - name: Create DMG
+        run: |
+          # Create DMG folder
+          mkdir -p build/dmg_temp
 
-        # Copy app to DMG folder
-        cp -R build/MindMic.app build/dmg_temp/
+          # Copy app to DMG folder
+          cp -R build/MindMic.app build/dmg_temp/
 
-        # Create Applications symlink
-        ln -s /Applications build/dmg_temp/Applications
+          # Create Applications symlink
+          ln -s /Applications build/dmg_temp/Applications
 
-        # Create DMG
-        hdiutil create \
-          -srcfolder build/dmg_temp \
-          -volname "$DMG_NAME" \
-          -fs HFS+ \
-          -fsargs "-c c=64,a=16,e=16" \
-          -format UDBZ \
-          "build/$DMG_NAME-$VERSION.dmg"
+          # Create DMG
+          hdiutil create \
+            -srcfolder build/dmg_temp \
+            -volname "$DMG_NAME" \
+            -fs HFS+ \
+            -fsargs "-c c=64,a=16,e=16" \
+            -format UDBZ \
+            "build/$DMG_NAME-$VERSION.dmg"
 
-        # Get DMG size
-        DMG_SIZE=$(stat -f%z "build/$DMG_NAME-$VERSION.dmg")
-        echo "DMG_SIZE=$DMG_SIZE" >> $GITHUB_ENV
-        echo "DMG size: $DMG_SIZE bytes"
+          # Get DMG size
+          DMG_SIZE=$(stat -f%z "build/$DMG_NAME-$VERSION.dmg")
+          echo "DMG_SIZE=$DMG_SIZE" >> $GITHUB_ENV
+          echo "DMG size: $DMG_SIZE bytes"
 
-    - name: Generate appcast info
-      run: |
-        # Create appcast info file
-        cat > build/appcast-info.json << EOF
-        {
-          "version": "$VERSION",
-          "build": "$BUILD_NUMBER",
-          "dmg_name": "$DMG_NAME-$VERSION.dmg",
-          "dmg_size": "$DMG_SIZE",
-          "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-          "min_system_version": "14.0"
-        }
-        EOF
+      - name: Generate appcast info
+        run: |
+          # Create appcast info file
+          echo '{' > build/appcast-info.json
+          echo '  "version": "'$VERSION'",' >> build/appcast-info.json
+          echo '  "build": "'$BUILD_NUMBER'",' >> build/appcast-info.json
+          echo '  "dmg_name": "'$DMG_NAME-$VERSION.dmg'",' >> build/appcast-info.json
+          echo '  "dmg_size": "'$DMG_SIZE'",' >> build/appcast-info.json
+          echo '  "release_date": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",' >> build/appcast-info.json
+          echo '  "min_system_version": "14.0"' >> build/appcast-info.json
+          echo '}' >> build/appcast-info.json
 
-        cat build/appcast-info.json
+          cat build/appcast-info.json
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: |
-          build/*.dmg
-          build/appcast-info.json
-          build/mindmic.xcarchive
-        retention-days: 30
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            build/*.dmg
+            build/appcast-info.json
+            build/mindmic.xcarchive
+          retention-days: 30
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-      uses: softprops/action-gh-release@v1
-      with:
-        name: MindMic ${{ env.VERSION }}
-        body: |
-          ## MindMic ${{ env.VERSION }}
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v1
+        with:
+          name: MindMic ${{ env.VERSION }}
+          body: |
+            ## MindMic ${{ env.VERSION }}
 
-          ### 🚀 New Features
-          - Ready for distribution with proper code signing
-          - Enhanced notarization support for seamless installation
-          - Automated build and release process
+            ### 🚀 New Features
+            - Ready for distribution with proper code signing
+            - Enhanced notarization support for seamless installation
+            - Automated build and release process
 
-          ### 📦 Installation
-          1. Download the DMG file below
-          2. Open the DMG and drag MindMic to Applications
-          3. Launch MindMic from your Applications folder
+            ### 📦 Installation
+            1. Download the DMG file below
+            2. Open the DMG and drag MindMic to Applications
+            3. Launch MindMic from your Applications folder
 
-          ### 🔐 Security
-          This release is:
-          - ✅ Code signed with Developer ID certificate
-          - ✅ Notarized by Apple
-          - ✅ Ready for macOS Gatekeeper
+            ### 🔐 Security
+            This release is:
+            - ✅ Code signed with Developer ID certificate
+            - ✅ Notarized by Apple
+            - ✅ Ready for macOS Gatekeeper
 
-          ### System Requirements
-          - macOS 14.0 or later
-          - Apple Silicon (M1/M2/M3) or Intel Mac
-          - Microphone access for recording
+            ### System Requirements
+            - macOS 14.0 or later
+            - Apple Silicon (M1/M2/M3) or Intel Mac
+            - Microphone access for recording
 
-          ---
-          *Download size: ${{ env.DMG_SIZE }} bytes*
-        files: |
-          build/${{ env.DMG_NAME }}-${{ env.VERSION }}.dmg
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ---
+            *Download size: ${{ env.DMG_SIZE }} bytes*
+          files: |
+            build/${{ env.DMG_NAME }}-${{ env.VERSION }}.dmg
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Notify completion
-      run: |
-        echo "✅ Release completed successfully!"
-        echo "📦 DMG: $DMG_NAME-$VERSION.dmg"
-        echo "📊 Size: $DMG_SIZE bytes"
-        echo "🔗 Release created on GitHub"
+      - name: Notify completion
+        run: |
+          echo "✅ Release completed successfully!"
+          echo "📦 DMG: $DMG_NAME-$VERSION.dmg"
+          echo "📊 Size: $DMG_SIZE bytes"
+          echo "🔗 Release created on GitHub"
 
-        if [[ "${{ github.event_name }}" == "push" ]]; then
-          echo "🏷️  Released from tag: ${{ github.ref_name }}"
-        else
-          echo "🔧 Manual release triggered"
-        fi
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "🏷️  Released from tag: ${{ github.ref_name }}"
+          else
+            echo "🔧 Manual release triggered"
+          fi
 
   update-appcast:
     needs: build-and-release
@@ -201,75 +197,73 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Download appcast info
-      uses: actions/download-artifact@v4
-      with:
-        name: build-artifacts
-        path: artifacts
+      - name: Download appcast info
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts
 
-    - name: Update appcast.xml
-      run: |
-        # Read appcast info
-        APPCAST_INFO=$(cat artifacts/appcast-info.json)
-        VERSION=$(echo "$APPCAST_INFO" | jq -r '.version')
-        BUILD=$(echo "$APPCAST_INFO" | jq -r '.build')
-        DMG_NAME=$(echo "$APPCAST_INFO" | jq -r '.dmg_name')
-        DMG_SIZE=$(echo "$APPCAST_INFO" | jq -r '.dmg_size')
-        RELEASE_DATE=$(echo "$APPCAST_INFO" | jq -r '.release_date')
+      - name: Update appcast.xml
+        run: |
+          # Read appcast info
+          APPCAST_INFO=$(cat artifacts/appcast-info.json)
+          VERSION=$(echo "$APPCAST_INFO" | jq -r '.version')
+          BUILD=$(echo "$APPCAST_INFO" | jq -r '.build')
+          DMG_NAME=$(echo "$APPCAST_INFO" | jq -r '.dmg_name')
+          DMG_SIZE=$(echo "$APPCAST_INFO" | jq -r '.dmg_size')
+          RELEASE_DATE=$(echo "$APPCAST_INFO" | jq -r '.release_date')
 
-        # Get download URL
-        DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${DMG_NAME}"
+          # Get download URL
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${DMG_NAME}"
 
-        echo "Updating appcast.xml for version $VERSION"
-        echo "Download URL: $DOWNLOAD_URL"
-        echo "DMG Size: $DMG_SIZE"
+          echo "Updating appcast.xml for version $VERSION"
+          echo "Download URL: $DOWNLOAD_URL"
+          echo "DMG Size: $DMG_SIZE"
 
-        # Update appcast.xml (you'll need to implement this part)
-        # This is a placeholder - you'll need to implement proper XML generation
-        cat > appcast.xml.new << EOF
-        <?xml version="1.0" encoding="utf-8"?>
-        <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <channel>
-            <title>MindMic Release Notes</title>
-            <link>https://beingpax.github.io/mindmic/</link>
-            <description>Most recent changes with links to updates.</description>
-            <language>en</language>
-            <item>
-              <title>Version $VERSION</title>
-              <link>https://beingpax.github.io/mindmic/</link>
-              <sparkle:releaseNotesLink>
-                https://github.com/${{ github.repository }}/releases/tag/v$VERSION
-              </sparkle:releaseNotesLink>
-              <pubDate>$RELEASE_DATE</pubDate>
-              <enclosure
-                url="$DOWNLOAD_URL"
-                sparkle:version="$BUILD"
-                sparkle:shortVersionString="$VERSION"
-                length="$DMG_SIZE"
-                type="application/octet-stream"
-                sparkle:edSignature="PLACEHOLDER_SIGNATURE"
-              />
-              <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            </item>
-          </channel>
-        </rss>
-        EOF
+          # Update appcast.xml (you'll need to implement this part)
+          # This is a placeholder - you'll need to implement proper XML generation
+          echo '<?xml version="1.0" encoding="utf-8"?>' > appcast.xml.new
+          echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">' >> appcast.xml.new
+          echo '  <channel>' >> appcast.xml.new
+          echo '    <title>MindMic Release Notes</title>' >> appcast.xml.new
+          echo '    <link>https://beingpax.github.io/mindmic/</link>' >> appcast.xml.new
+          echo '    <description>Most recent changes with links to updates.</description>' >> appcast.xml.new
+          echo '    <language>en</language>' >> appcast.xml.new
+          echo '    <item>' >> appcast.xml.new
+          echo '      <title>Version $VERSION</title>' >> appcast.xml.new
+          echo '      <link>https://beingpax.github.io/mindmic/</link>' >> appcast.xml.new
+          echo '      <sparkle:releaseNotesLink>' >> appcast.xml.new
+          echo '        https://github.com/${{ github.repository }}/releases/tag/v$VERSION' >> appcast.xml.new
+          echo '      </sparkle:releaseNotesLink>' >> appcast.xml.new
+          echo '      <pubDate>$RELEASE_DATE</pubDate>' >> appcast.xml.new
+          echo '      <enclosure' >> appcast.xml.new
+          echo '        url="$DOWNLOAD_URL"' >> appcast.xml.new
+          echo '        sparkle:version="$BUILD"' >> appcast.xml.new
+          echo '        sparkle:shortVersionString="$VERSION"' >> appcast.xml.new
+          echo '        length="$DMG_SIZE"' >> appcast.xml.new
+          echo '        type="application/octet-stream"' >> appcast.xml.new
+          echo '        sparkle:edSignature="PLACEHOLDER_SIGNATURE"' >> appcast.xml.new
+          echo '      />' >> appcast.xml.new
+          echo '      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>' >> appcast.xml.new
+          echo '    </item>' >> appcast.xml.new
+          echo '  </channel>' >> appcast.xml.new
+          echo '</rss>' >> appcast.xml.new
 
-        echo "Generated new appcast.xml:"
-        cat appcast.xml.new
+          echo "Generated new appcast.xml:"
+          cat appcast.xml.new
 
-        # Note: You'll need to manually update the edSignature after signing
-        # This part would need to be done locally with the signed DMG
+          # Note: You'll need to manually update the edSignature after signing
+          # This part would need to be done locally with the signed DMG
 
-    - name: Commit appcast updates (placeholder)
-      run: |
-        echo "Note: Appcast.xml needs to be updated locally with the proper edSignature"
-        echo "After downloading the signed DMG from the release:"
-        echo "1. Generate the edSignature using the Sparkle tools"
-        echo "2. Update appcast.xml on your website"
-        echo "3. Commit and push the updated appcast.xml"
+      - name: Commit appcast updates (placeholder)
+        run: |
+          echo "Note: Appcast.xml needs to be updated locally with the proper edSignature"
+          echo "After downloading the signed DMG from the release:"
+          echo "1. Generate the edSignature using the Sparkle tools"
+          echo "2. Update appcast.xml on your website"
+          echo "3. Commit and push the updated appcast.xml"
