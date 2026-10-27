@@ -136,6 +136,10 @@ jobs:
           /usr/libexec/PlistBuddy -c "Delete :keychain-access-groups" build-unsigned/adhoc.entitlements || true
           /usr/libexec/PlistBuddy -c "Delete :com.apple.security.temporary-exception.mach-lookup.global-name" build-unsigned/adhoc.entitlements || true
 
+          for fw in build-unsigned/MindMic.app/Contents/Frameworks/*.framework; do
+            echo "== $fw"; ls -la "$fw"
+          done
+
           codesign --force --deep --sign - \
             --entitlements build-unsigned/adhoc.entitlements \
             build-unsigned/MindMic.app
