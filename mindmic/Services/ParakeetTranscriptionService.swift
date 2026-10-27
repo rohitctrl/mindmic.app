@@ -50,7 +50,7 @@ class ParakeetTranscriptionService: TranscriptionService {
 
         var speechAudio = audioSamples
         if durationSeconds >= 20.0, isVADEnabled {
-            let vadConfig = VadConfig(threshold: 0.7)
+            let vadConfig = VadConfig(defaultThreshold: 0.7)
             if vadManager == nil {
                 do {
                     vadManager = try await VadManager(config: vadConfig)
@@ -71,7 +71,7 @@ class ParakeetTranscriptionService: TranscriptionService {
             }
         }
 
-        var decoderState = TdtDecoderState.make(decoderLayers: asrManager.decoderLayerCount)
+        var decoderState = TdtDecoderState.make(decoderLayers: await asrManager.decoderLayerCount)
         let result = try await asrManager.transcribe(speechAudio, decoderState: &decoderState)
 
         return result.text
@@ -98,7 +98,9 @@ class ParakeetTranscriptionService: TranscriptionService {
     }
 
     func cleanup() {
-        asrManager?.cleanup()
+        if let manager = asrManager {
+            Task { await manager.cleanup() }
+        }
         asrManager = nil
         vadManager = nil
         activeVersion = nil
