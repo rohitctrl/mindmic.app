@@ -26,7 +26,7 @@ class ParakeetTranscriptionService: TranscriptionService {
             configuration: nil,
             version: version
         )
-        try await manager.initialize(models: models)
+        try await manager.loadModels(models)
         self.asrManager = manager
         self.activeVersion = version
     }
@@ -71,7 +71,8 @@ class ParakeetTranscriptionService: TranscriptionService {
             }
         }
 
-        let result = try await asrManager.transcribe(speechAudio)
+        var decoderState = TdtDecoderState.make(decoderLayers: asrManager.decoderLayerCount)
+        let result = try await asrManager.transcribe(speechAudio, decoderState: &decoderState)
 
         return result.text
     }
