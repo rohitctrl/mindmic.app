@@ -121,7 +121,14 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build-unsigned/archive.log | tail -50
+            > build-unsigned/archive.log 2>&1 || {
+              echo "---- compile errors ----"
+              grep -E "error:|fatal error|Undefined symbols|ld: " build-unsigned/archive.log | grep -v "Swift 6 language mode" | sort -u | head -40
+              echo "---- last 30 lines ----"
+              tail -30 build-unsigned/archive.log
+              exit 1
+            }
+          tail -5 build-unsigned/archive.log
 
       - name: Extract app and ad-hoc sign
         run: |
