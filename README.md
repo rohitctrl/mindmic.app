@@ -39,7 +39,7 @@
 ## 📋 System Requirements
 
 - **macOS 14.0 or later**
-- **Apple Silicon (M1/M2/M3) or Intel Mac**
+- **Apple Silicon Mac (M1 or newer)**
 - **Microphone access**
 - **Internet connection** (for cloud AI features)
 

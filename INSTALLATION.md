@@ -5,7 +5,7 @@ This guide covers all methods for installing MindMic on macOS. MindMic is distri
 ## System Requirements
 
 - **macOS 14.0 or later** (Sonoma or newer)
-- **Apple Silicon (M1/M2/M3) or Intel Mac**
+- **Apple Silicon Mac (M1 or newer)**
 - **Microphone access** for voice recording
 - **Screen recording permission** for Power Mode features
 
@@ -19,7 +19,7 @@ Homebrew provides the easiest installation and update experience.
 
 ```bash
 # Add the tap repository
-brew tap rohit1906/homebrew-tap
+brew tap rohitctrl/homebrew-tap
 
 # Install MindMic
 brew install --cask mindmic
@@ -28,9 +28,10 @@ brew install --cask mindmic
 #### First Launch
 
 1. Open Finder and go to Applications folder
-2. **Right-click** on MindMic.app and select "Open" (don't double-click)
-3. Click "Open" in the security dialog that appears
-4. Grant permissions when prompted:
+2. Double-click MindMic.app. macOS says it can't verify the app. Click **Done**
+3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the MindMic message
+4. If macOS says the app is **"damaged"**, run `xattr -dr com.apple.quarantine /Applications/MindMic.app` in Terminal and open it again
+5. Grant permissions when prompted:
    - Microphone access
    - Screen recording access (for Power Mode)
 
@@ -53,7 +54,7 @@ brew uninstall --cask mindmic
 
 #### Step 1: Download
 
-Visit the [GitHub Releases page](https://github.com/rohit1906/mind-mic/releases) and download the latest:
+Visit the [GitHub Releases page](https://github.com/rohitctrl/mindmic.app/releases) and download the latest:
 - `MindMic-2.0-unsigned.dmg` (recommended) or
 - `MindMic-2.0-unsigned.zip`
 
@@ -83,9 +84,10 @@ shasum -a 256 ~/Downloads/MindMic-2.0-unsigned.zip
 #### Step 4: First Launch (Important!)
 
 1. Open Finder → Applications folder
-2. **Right-click** on MindMic.app and select "Open"
-3. Click "Open" in the security dialog: *"MindMic.app can't be opened because Apple cannot check it for malicious software"*
-4. Grant permissions when prompted
+2. Double-click MindMic.app. macOS says it can't verify the app (*"Apple could not verify MindMic is free of malware"*). Click **Done**
+3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the MindMic message
+4. If macOS says the app is **"damaged"**, see Troubleshooting below
+5. Grant permissions when prompted
 
 ---
 
@@ -101,16 +103,18 @@ MindMic is distributed as an **unsigned application** to avoid the $99/year Appl
 
 ### How to Bypass Security Warnings
 
-**Method 1: Right-Click (Recommended)**
-1. Right-click on MindMic.app
-2. Select "Open" from the context menu
-3. Click "Open" in the confirmation dialog
-
-**Method 2: System Settings**
+**Method 1: System Settings (works on every macOS version)**
 1. Try to open MindMic.app (you'll see the warning)
 2. Open System Settings → Privacy & Security
 3. Find the security section about MindMic
-4. Click "Open Anyway"
+4. Click "Open Anyway" and confirm with your password
+
+> On macOS 15 (Sequoia) and later, right-click → Open no longer bypasses this check. Use Open Anyway.
+
+**Method 2: Terminal**
+```bash
+xattr -dr com.apple.quarantine /Applications/MindMic.app
+```
 
 ### After First Launch
 
@@ -150,8 +154,8 @@ MindMic uses Apple Events to integrate with browsers and other applications. Thi
 **Problem**: "MindMic.app can't be opened because Apple cannot check it for malicious software"
 
 **Solution**:
-1. Right-click on MindMic.app → Open
-2. Click "Open" in the dialog
+1. Open System Settings → Privacy & Security and click "Open Anyway" next to the MindMic message
+2. If it says the app is "damaged", run `xattr -dr com.apple.quarantine /Applications/MindMic.app` and open it again
 3. This is only required on first launch
 
 ### Permission Issues
@@ -180,7 +184,7 @@ MindMic uses Apple Events to integrate with browsers and other applications. Thi
 
 **Solutions**:
 1. **Update Homebrew**: `brew update && brew upgrade`
-2. **Check tap**: `brew tap rohit1906/homebrew-tap`
+2. **Check tap**: `brew tap rohitctrl/homebrew-tap`
 3. **Check internet connection**: Ensure you can access GitHub
 4. **Try manual installation**: Use direct download method
 
@@ -201,8 +205,8 @@ If you want to build MindMic yourself:
 
 ```bash
 # Clone the repository
-git clone https://github.com/rohit1906/mind-mic.git
-cd mind-mic
+git clone https://github.com/rohitctrl/mindmic.app.git
+cd mindmic.app
 
 # Open in Xcode
 open mindmic.xcodeproj
@@ -230,7 +234,7 @@ brew info --cask mindmic
 
 Always verify your download using SHA256 checksums:
 
-1. Go to the [GitHub Releases page](https://github.com/rohit1906/mind-mic/releases)
+1. Go to the [GitHub Releases page](https://github.com/rohitctrl/mindmic.app/releases)
 2. Copy the SHA256 checksum from the release notes
 3. Run this command in Terminal:
    ```bash
@@ -241,16 +245,16 @@ Always verify your download using SHA256 checksums:
 ### Code Review
 
 MindMic is open source! You can review the code at:
-- **Main repository**: https://github.com/rohit1906/mind-mic
-- **Issues and discussions**: https://github.com/rohit1906/mind-mic/issues
+- **Main repository**: https://github.com/rohitctrl/mindmic.app
+- **Issues and discussions**: https://github.com/rohitctrl/mindmic.app/issues
 
 ## Support
 
 ### Getting Help
 
 - **Documentation**: Check the main README.md in the repository
-- **Issues**: Report bugs at https://github.com/rohit1906/mind-mic/issues
-- **Discussions**: Ask questions at https://github.com/rohit1906/mind-mic/discussions
+- **Issues**: Report bugs at https://github.com/rohitctrl/mindmic.app/issues
+- **Discussions**: Ask questions at https://github.com/rohitctrl/mindmic.app/discussions
 
 ### Contributing
 
@@ -275,7 +279,7 @@ A: No. MindMic only requests permissions it needs for transcription and enhancem
 A: With Homebrew: `brew upgrade --cask mindmic`. With manual installation: download new versions from GitHub releases.
 
 **Q: Can I use this on an Intel Mac?**
-A: Yes, MindMic supports both Apple Silicon and Intel Macs running macOS 14.0+.
+A: Not with the current build. Releases are Apple Silicon only (M1 or newer), macOS 14.0+.
 
 ---
 

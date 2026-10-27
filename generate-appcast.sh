@@ -11,7 +11,7 @@ BUILD="160"
 DMG_NAME="MindMic"
 BUILD_DIR="build"
 APPCAST_FILE="appcast.xml"
-DOWNLOAD_BASE_URL="https://github.com/rohit1906/mind-mic/releases/download"
+DOWNLOAD_BASE_URL="https://github.com/rohitctrl/mindmic.app/releases/download"
 WEBSITE_URL="https://beingpax.github.io/mindmic"
 
 # Colors for output

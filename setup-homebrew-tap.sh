@@ -101,10 +101,10 @@ cask "mindmic" do
   version "2.0"
   sha256 :no_check  # Will be updated with actual SHA256 during release
 
-  url "https://github.com/rohit1906/mind-mic/releases/download/v#{version}/MindMic-#{version}-unsigned.dmg"
+  url "https://github.com/rohitctrl/mindmic.app/releases/download/v#{version}/MindMic-#{version}-unsigned.dmg"
   name "MindMic"
   desc "AI-powered voice transcription and enhancement application"
-  homepage "https://github.com/rohit1906/mind-mic"
+  homepage "https://github.com/rohitctrl/mindmic.app"
 
   app "MindMic.app"
 
@@ -150,9 +150,9 @@ After installation, you can launch MindMic from your Applications folder or via 
 
 **Important:** MindMic is distributed as an unsigned application. On first launch, you'll need to:
 
-1. Right-click on MindMic.app in Finder
-2. Select "Open" from the context menu
-3. Click "Open" in the security dialog that appears
+1. Open MindMic once. macOS says it can't verify the app: click Done
+2. System Settings > Privacy & Security > click "Open Anyway" next to MindMic
+3. If it says the app is "damaged", run: xattr -dr com.apple.quarantine /Applications/MindMic.app
 4. Grant microphone and screen recording permissions when prompted
 
 #### Update
@@ -179,7 +179,7 @@ These warnings are normal and don't indicate malicious software. The source code
 
 ## Support
 
-For issues with MindMic itself, please visit the [main repository](https://github.com/rohit1906/mind-mic).
+For issues with MindMic itself, please visit the [main repository](https://github.com/rohitctrl/mindmic.app).
 
 For issues with this Homebrew formula, please [file an issue](https://github.com/$TAP_REPO/issues).
 EOF

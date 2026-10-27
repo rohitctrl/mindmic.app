@@ -124,6 +124,21 @@ remove_quarantine() {
     fi
 }
 
+# Ad-hoc sign (free). Apple Silicon refuses fully unsigned binaries ("damaged").
+# keychain-access-groups is restricted and would get an ad-hoc app killed at launch.
+adhoc_sign() {
+    log_step "Ad-hoc signing app..."
+
+    local ent="$BUILD_DIR/adhoc.entitlements"
+    cp mindmic/mindmic.entitlements "$ent"
+    /usr/libexec/PlistBuddy -c "Delete :keychain-access-groups" "$ent" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Delete :com.apple.security.temporary-exception.mach-lookup.global-name" "$ent" 2>/dev/null || true
+
+    codesign --force --deep --sign - --entitlements "$ent" "$BUILD_DIR/$APP_NAME"
+    codesign --verify --deep --strict "$BUILD_DIR/$APP_NAME"
+    log_info "✅ App ad-hoc signed"
+}
+
 # Create DMG
 create_dmg() {
     log_step "Creating unsigned DMG..."
@@ -151,12 +166,12 @@ This is normal for unsigned applications.
 
 HOW TO INSTALL:
 1. Drag MindMic.app to your Applications folder
-2. Right-click on MindMic.app and select "Open"
-3. Click "Open" in the security dialog
+2. Open MindMic once, click Done, then System Settings > Privacy & Security > "Open Anyway"
+3. If macOS says "damaged": xattr -dr com.apple.quarantine /Applications/MindMic.app
 4. Grant microphone and screen recording permissions when prompted
 
 FOR MORE HELP:
-- Visit: https://github.com/rohit1906/mind-mic
+- Visit: https://github.com/rohitctrl/mindmic.app
 - Check the INSTALLATION.md file for detailed instructions
 
 Thank you for using MindMic!
@@ -226,7 +241,7 @@ create_zip() {
     if [ -d "$APP_PATH" ]; then
         # Create ZIP
         cd "$BUILD_DIR"
-        zip -r "$ZIP_PATH" "$APP_NAME"
+        ditto -c -k --keepParent "$APP_NAME" "$(basename "$ZIP_PATH")"
         cd - > /dev/null
 
         if [ $? -eq 0 ]; then
@@ -278,7 +293,7 @@ display_info() {
 
     log_info "⚠️  User Instructions (include in release):"
     log_info "  - Download DMG or ZIP"
-    log_info "  - Right-click app and select 'Open' to bypass Gatekeeper"
+    log_info "  - Open once, then System Settings > Privacy & Security > Open Anyway"
     log_info "  - Grant microphone and screen recording permissions"
     log_info "  - Add to Applications folder"
 }
@@ -295,6 +310,7 @@ main() {
     build_archive
     export_app
     remove_quarantine
+    adhoc_sign
     create_dmg
     generate_checksums
     create_zip

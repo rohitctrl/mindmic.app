@@ -36,7 +36,7 @@ GitHub Actions will automatically build and release your app!
 
 **Option 1: Homebrew (Technical Users)**
 ```bash
-brew tap rohit1906/homebrew-tap
+brew tap rohitctrl/homebrew-tap
 brew install --cask mindmic
 ```
 

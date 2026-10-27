@@ -103,7 +103,7 @@ git push origin v2.0
 ### Homebrew Installation
 
 1. **Technical User** - Familiar with package managers
-2. **Installation** - `brew tap rohit1906/homebrew-tap && brew install --cask mindmic`
+2. **Installation** - `brew tap rohitctrl/homebrew-tap && brew install --cask mindmic`
 3. **Security Warning** - Same Gatekeeper process as direct installation
 4. **Permissions** - Same permission granting process
 5. **Updates** - `brew upgrade --cask mindmic` for future updates
@@ -194,7 +194,7 @@ shasum -a 256 ~/Downloads/MindMic-2.0-unsigned.dmg
 ```
 
 This creates:
-- GitHub repository: `rohit1906/homebrew-tap`
+- GitHub repository: `rohitctrl/homebrew-tap`
 - Cask formula: `Casks/mindmic.rb`
 - Documentation: `README.md`
 - Update script: `update-cask.sh`
@@ -216,7 +216,7 @@ The update script:
 
 ```bash
 # Add tap
-brew tap rohit1906/homebrew-tap
+brew tap rohitctrl/homebrew-tap
 
 # Install app
 brew install --cask mindmic

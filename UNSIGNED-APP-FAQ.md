@@ -40,19 +40,21 @@ macOS uses **Gatekeeper** to protect users from potentially harmful software. Wh
 
 ## How to Safely Install Unsigned Apps
 
-### Method 1: Right-Click Approach (Recommended)
+### Method 1: System Settings (Recommended)
 
-1. **Right-click** on MindMic.app
-2. Select **"Open"** from the context menu
-3. Click **"Open"** in the confirmation dialog
-4. Grant permissions when prompted
-
-### Method 2: System Settings Approach
-
-1. Try to open MindMic (you'll see the warning)
+1. Try to open MindMic (you'll see the warning). Click **Done**
 2. Go to **System Settings → Privacy & Security**
 3. Scroll to the security section about MindMic
-4. Click **"Open Anyway"**
+4. Click **"Open Anyway"** and confirm with your password
+5. Grant permissions when prompted
+
+On macOS 15 (Sequoia) and later, right-click → Open no longer bypasses the check.
+
+### Method 2: Terminal (if macOS says the app is "damaged")
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MindMic.app
+```
 
 ### After First Launch
 
@@ -66,7 +68,7 @@ Once you successfully open MindMic using either method:
 ### How to Verify MindMic is Safe
 
 **1. Source Code Review**
-- Visit: https://github.com/rohit1906/mind-mic
+- Visit: https://github.com/rohitctrl/mindmic.app
 - All code is publicly available
 - Community can review and audit the code
 
@@ -210,7 +212,7 @@ Show warning → User must approve
 
 ### If You're Still Concerned
 
-1. **Review the code**: https://github.com/rohit1906/mind-mic
+1. **Review the code**: https://github.com/rohitctrl/mindmic.app
 2. **Check issues**: See what problems users report
 3. **Ask questions**: Use GitHub discussions
 4. **Wait and see**: Monitor the project before installing
@@ -226,7 +228,7 @@ If you're uncomfortable with unsigned apps:
 ### Reporting Security Issues
 
 If you find security concerns with MindMic:
-1. **File an issue**: https://github.com/rohit1906/mind-mic/issues
+1. **File an issue**: https://github.com/rohitctrl/mindmic.app/issues
 2. **Email privately**: If it's a sensitive security issue
 3. **Be specific**: Include details and reproduction steps
 4. **Be constructive**: Help improve the project
