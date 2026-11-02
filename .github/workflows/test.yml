@@ -1,0 +1,23 @@
+name: Test Homebrew Cask
+
+on:
+  push:
+    paths:
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+jobs:
+  test-cask:
+    name: Test brew cask install
+    runs-on: macos-latest
+    steps:
+      - name: Add the MindMic tap
+        run: brew tap rohitctrl/homebrew-tap
+
+      - name: Install the MindMic cask
+        run: brew install --cask mindmic
+
+      - name: Verify installation
+        run: |
+          brew list --cask
+          ls -la /Applications/MindMic.app
