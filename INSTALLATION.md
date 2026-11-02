@@ -18,12 +18,11 @@ Homebrew provides the easiest installation and update experience.
 #### Installation
 
 ```bash
-# Add the tap repository
-brew tap rohitctrl/homebrew-tap
-
-# Install MindMic
-brew install --cask mindmic
+# Tap, trust and install in one command
+brew install --cask rohitctrl/tap/mindmic
 ```
+
+Homebrew 6.0.0 and newer require explicit trust for third-party taps. Installing with the full tap name (as above) taps this repository, trusts the cask and installs MindMic in one step. If you prefer to tap first, run `brew tap rohitctrl/homebrew-tap`, then `brew trust --cask rohitctrl/tap/mindmic`, then `brew install --cask mindmic`.
 
 #### First Launch
 
@@ -180,13 +179,14 @@ MindMic uses Apple Events to integrate with browsers and other applications. Thi
 
 ### Homebrew Installation Fails
 
-**Problem**: `brew install --cask mindmic` fails
+**Problem**: `brew install --cask rohitctrl/tap/mindmic` fails
 
 **Solutions**:
-1. **Update Homebrew**: `brew update && brew upgrade`
-2. **Check tap**: `brew tap rohitctrl/homebrew-tap`
-3. **Check internet connection**: Ensure you can access GitHub
-4. **Try manual installation**: Use direct download method
+1. **Untrusted tap error**: On Homebrew 6.0.0 or newer, use the full install command `brew install --cask rohitctrl/tap/mindmic`, or run `brew trust --cask rohitctrl/tap/mindmic` after tapping
+2. **Update Homebrew**: `brew update && brew upgrade`
+3. **Check tap**: `brew tap rohitctrl/homebrew-tap`
+4. **Check internet connection**: Ensure you can access GitHub
+5. **Try manual installation**: Use direct download method
 
 ### DMG Won't Mount
 
