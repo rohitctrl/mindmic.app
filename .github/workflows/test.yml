@@ -14,8 +14,10 @@ jobs:
       - name: Add the MindMic tap
         run: brew tap rohitctrl/homebrew-tap
 
-      - name: Install the MindMic cask
-        run: brew install --cask mindmic
+      - name: Trust and install the MindMic cask
+        run: |
+          brew trust --cask rohitctrl/tap/mindmic
+          brew install --cask mindmic
 
       - name: Verify installation
         run: |
