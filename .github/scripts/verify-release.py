@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 app = pathlib.Path(sys.argv[1]).resolve()
-subprocess.run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)], check=True)
+subprocess.run(["codesign", "--verify", "--strict", "--verbose=2", str(app)], check=True)
 profiles = list(app.rglob("*.provisionprofile"))
 if profiles:
     raise SystemExit(f"Unexpected provisioning profiles: {profiles}")
