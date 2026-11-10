@@ -10,8 +10,8 @@ on:
         description: "Release version (e.g., 2.0.0)"
         required: true
         type: string
-      create_homebrew_update:
-        description: "Update the Homebrew cask in rohitctrl/homebrew-tap"
+      publish:
+        description: "Publish the verified release and update Homebrew"
         required: false
         type: boolean
         default: false
@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: free-release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-unsigned:
@@ -38,14 +38,17 @@ jobs:
           xcode-version: latest-stable
 
       - name: Set up environment variables
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="$REQUESTED_VERSION"
           fi
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version"; exit 1; }
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=$(date +%s)" >> $GITHUB_ENV
           xcodebuild -version
           cmake --version | head -1
 
@@ -136,24 +139,8 @@ jobs:
           test -n "$APP_SRC" || { echo "No .app in archive"; exit 1; }
           ditto "$APP_SRC" build-unsigned/MindMic.app
 
-          # keychain-access-groups is a restricted entitlement: with an ad-hoc
-          # signature macOS kills the app at launch. The mach-lookup exception is
-          # a sandbox-only leftover with unexpanded $(...) variables.
-          cp mindmic/mindmic.entitlements build-unsigned/adhoc.entitlements
-          /usr/libexec/PlistBuddy -c "Delete :keychain-access-groups" build-unsigned/adhoc.entitlements || true
-          /usr/libexec/PlistBuddy -c "Delete :com.apple.security.temporary-exception.mach-lookup.global-name" build-unsigned/adhoc.entitlements || true
-
-          for fw in build-unsigned/MindMic.app/Contents/Frameworks/*.framework; do
-            echo "== $fw"; ls -la "$fw"
-          done
-
-          codesign --force --deep --sign - \
-            --entitlements build-unsigned/adhoc.entitlements \
-            build-unsigned/MindMic.app
-
-          codesign --verify --deep --strict --verbose=2 build-unsigned/MindMic.app
-          codesign -dv build-unsigned/MindMic.app 2>&1 | grep -E "Signature|Identifier"
-          lipo -archs "build-unsigned/MindMic.app/Contents/MacOS/$(defaults read "$PWD/build-unsigned/MindMic.app/Contents/Info" CFBundleExecutable)"
+          python3 .github/scripts/sign-adhoc.py build-unsigned/MindMic.app mindmic/mindmic.entitlements
+          python3 .github/scripts/verify-release.py build-unsigned/MindMic.app
 
       - name: Create ZIP archive
         run: |
@@ -175,9 +162,10 @@ jobs:
           2. Open MindMic once. macOS will say it cannot verify the app. Click Done.
           3. Open System Settings > Privacy & Security, scroll down, and click
              "Open Anyway" next to the MindMic message. Confirm with your password.
-          4. If macOS says the app is "damaged", run this in Terminal, then reopen:
-               xattr -dr com.apple.quarantine /Applications/MindMic.app
-          5. Grant microphone and screen recording permissions when asked.
+          4. Grant microphone and screen recording permissions when asked.
+
+          "Contains malware", automatic removal, or "damaged" are not the expected
+          approval prompt. Report those messages at the help URL below.
 
           Requires macOS 14 or later on an Apple Silicon Mac (M1 or newer).
           Help: https://github.com/rohitctrl/mindmic.app
@@ -231,88 +219,101 @@ jobs:
             build-unsigned/archive.log
           retention-days: 30
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.VERSION }}
-          name: MindMic ${{ env.VERSION }}
-          body: |
-            ## MindMic ${{ env.VERSION }}
-
-            ### First launch (required, one time)
-
-            MindMic is not notarized by Apple because I don't pay for a developer account, so macOS blocks it on first open. The code is open source.
-
-            1. Download the DMG (or ZIP) below and move **MindMic.app** to Applications.
-            2. Open MindMic once. macOS says it can't verify the app. Click **Done**.
-            3. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the MindMic message.
-            4. If macOS says the app is **"damaged"**, run this in Terminal and reopen it:
-               ```bash
-               xattr -dr com.apple.quarantine /Applications/MindMic.app
-               ```
-            5. Grant microphone and screen recording permissions when asked.
-
-            ### Homebrew
-            ```bash
-            brew tap rohitctrl/homebrew-tap
-            brew install --cask mindmic
-            ```
-
-            ### Verify your download
-            - DMG SHA256: `${{ env.DMG_SHA256 }}`
-            - ZIP SHA256: `${{ env.ZIP_SHA256 }}`
-            ```bash
-            shasum -a 256 ~/Downloads/MindMic-${{ env.VERSION }}-unsigned.dmg
-            ```
-
-            ### Requirements
-            - macOS 14.0 or later
-            - Apple Silicon Mac (M1 or newer). Intel Macs are not supported by this build.
-
-            More help: [Installation guide](https://github.com/rohitctrl/mindmic.app/blob/main/INSTALLATION.md) · [Unsigned app FAQ](https://github.com/rohitctrl/mindmic.app/blob/main/UNSIGNED-APP-FAQ.md)
-          files: |
-            build-unsigned/MindMic-${{ env.VERSION }}-unsigned.dmg
-            build-unsigned/MindMic-${{ env.VERSION }}-unsigned.zip
-            build-unsigned/checksums.txt
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  update-homebrew:
+  verify-install:
     needs: build-unsigned
-    runs-on: macos-15
-    if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_homebrew_update == 'true'
-
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
-      - name: Checkout tap repository
-        uses: actions/checkout@v4
-        with:
-          repository: rohitctrl/homebrew-tap
-          # A token with write access to the tap repo; GITHUB_TOKEN cannot push there.
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-      - name: Download release info
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: unsigned-build-artifacts
           path: artifacts
-
-      - name: Update cask formula
+      - name: Install the packaged DMG through Homebrew
         run: |
-          VERSION=$(jq -r '.version' artifacts/release-info.json)
-          DMG_SHA256=$(jq -r '.dmg_sha256' artifacts/release-info.json)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-          sed -i '' -E "s/version \"[^\"]*\"/version \"$VERSION\"/" Casks/mindmic.rb
-          sed -i '' -E "s/sha256 (:no_check|\"[^\"]*\")/sha256 \"$DMG_SHA256\"/" Casks/mindmic.rb
-          cat Casks/mindmic.rb
-
-      - name: Commit and push changes
+          test "$(uname -m)" = arm64
+          brew tap-new local/mindmic-ci
+          python3 .github/scripts/render-cask.py artifacts/release-info.json \
+            "$(brew --repository local/mindmic-ci)/Casks/mindmic.rb" \
+            "file://$PWD/artifacts/$(jq -r .dmg_name artifacts/release-info.json)"
+          brew install --cask local/mindmic-ci/mindmic
+          python3 .github/scripts/verify-release.py /Applications/MindMic.app
+      - name: Check launch after first-open approval
         run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-          git add Casks/mindmic.rb
-          git commit -m "Update mindmic to $VERSION"
-          git push
+          # Headless CI cannot click Open Anyway. Removing quarantine here models
+          # that user approval for the runtime test; the shipped cask never does it.
+          xattr -dr com.apple.quarantine /Applications/MindMic.app || true
+          /Applications/MindMic.app/Contents/MacOS/mindmic > artifacts/launch.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..15}; do
+            sleep 1
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat artifacts/launch.log
+              /usr/bin/log show --last 2m --style compact --predicate 'eventMessage CONTAINS[c] "mindmic"'
+              exit 1
+            fi
+          done
+          echo "MindMic remained running for 15 seconds on $(sw_vers -productVersion)."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launch-${{ matrix.os }}
+          path: artifacts/launch.log
+
+  publish:
+    needs: [build-unsigned, verify-install]
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-build-artifacts
+          path: artifacts
+      - name: Check Homebrew credentials before publishing
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: test -n "$TAP_TOKEN"
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(jq -r .version artifacts/release-info.json)
+          cat > artifacts/notes.md <<'NOTES'
+          Fixes launch failures caused by expired development provisioning profiles.
+          Free, ad-hoc signed release for Apple Silicon Macs running macOS 14 or later.
+          Packaged installation and launch are checked on macOS 15 and 26.
+
+          Install: `brew install --cask rohitctrl/tap/mindmic`
+          Upgrade: `brew update && brew upgrade --cask mindmic`
+
+          First launch: open MindMic, then use System Settings > Privacy & Security > Open Anyway.
+          This build is not Apple-notarized. A "contains malware" or "damaged" alert is not
+          the expected approval prompt; report it instead of bypassing it.
+          NOTES
+          gh release create "v$VERSION" artifacts/*.dmg artifacts/*.zip artifacts/checksums.txt \
+            --target "$GITHUB_SHA" --title "MindMic $VERSION" --notes-file artifacts/notes.md --latest
+      - uses: actions/checkout@v4
+        with:
+          repository: rohitctrl/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Update Homebrew to the exact published artifact
+        run: |
+          VERSION=$(jq -r .version artifacts/release-info.json)
+          python3 .github/scripts/render-cask.py artifacts/release-info.json tap/Casks/mindmic.rb
+          ruby -c tap/Casks/mindmic.rb
+          git -C tap config user.email "action@github.com"
+          git -C tap config user.name "GitHub Action"
+          git -C tap add Casks/mindmic.rb
+          git -C tap commit -m "Update MindMic to $VERSION with verified free signing"
+          git -C tap push
+      - name: Verify published cask download and signature
+        run: |
+          brew install --cask rohitctrl/tap/mindmic
+          python3 .github/scripts/verify-release.py /Applications/MindMic.app
