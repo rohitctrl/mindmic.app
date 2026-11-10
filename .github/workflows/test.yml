@@ -4,18 +4,44 @@ on:
   push:
     paths:
       - ".github/workflows/test.yml"
+      - ".github/scripts/verify-release.py"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test-cask:
-    name: Test brew cask install
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
-      - name: Install the MindMic cask
-        run: brew install --cask rohitctrl/tap/mindmic
-
-      - name: Verify installation
+      - uses: actions/checkout@v4
+      - name: Install and validate the published cask
         run: |
-          brew list --cask
-          brew info --cask mindmic | head -2
-          ls -la /Applications/MindMic.app
+          test "$(uname -m)" = arm64
+          brew install --cask rohitctrl/tap/mindmic
+          python3 .github/scripts/verify-release.py /Applications/MindMic.app
+      - name: Verify launch after user approval
+        run: |
+          # CI simulation of Open Anyway, never performed by the distributed cask.
+          xattr -dr com.apple.quarantine /Applications/MindMic.app || true
+          /Applications/MindMic.app/Contents/MacOS/mindmic > "$RUNNER_TEMP/mindmic-launch.log" 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..15}; do
+            sleep 1
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat "$RUNNER_TEMP/mindmic-launch.log"
+              /usr/bin/log show --last 2m --style compact --predicate 'eventMessage CONTAINS[c] "mindmic"'
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-launch-${{ matrix.os }}
+          path: ${{ runner.temp }}/mindmic-launch.log

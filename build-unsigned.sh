@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MindMic Unsigned Build Script
-# This script builds the app for free distribution without code signing
+# Build and ad-hoc sign the app for free distribution.
 
 set -e  # Exit on any error
 
@@ -10,7 +10,6 @@ PROJECT_NAME="mindmic"
 SCHEME="mindmic"
 WORKSPACE="mindmic.xcodeproj"
 CONFIGURATION="Release"
-EXPORT_OPTIONS_PLIST="exportOptions-unsigned.plist"
 BUILD_DIR="build-unsigned"
 ARCHIVE_PATH="$BUILD_DIR/$PROJECT_NAME.xcarchive"
 APP_NAME="MindMic.app"
@@ -90,53 +89,18 @@ build_archive() {
     fi
 }
 
-# Export the app without signing
+# Extract directly: a development export can reintroduce provisioning profiles.
 export_app() {
-    log_step "Exporting unsigned app..."
-
-    xcodebuild -exportArchive \
-        -archivePath "$ARCHIVE_PATH" \
-        -exportPath "$BUILD_DIR" \
-        -exportOptionsPlist "$EXPORT_OPTIONS_PLIST" \
-        -quiet
-
-    if [ $? -eq 0 ]; then
-        log_info "✅ App exported successfully (unsigned)"
-    else
-        log_error "❌ Failed to export app"
-        exit 1
-    fi
-
-    # Verify the app exists
-    if [ ! -d "$BUILD_DIR/$APP_NAME" ]; then
-        log_error "Exported app not found at $BUILD_DIR/$APP_NAME"
-        exit 1
-    fi
+    log_step "Extracting app from archive..."
+    local source_app="$ARCHIVE_PATH/Products/Applications/mindmic.app"
+    test -d "$source_app"
+    ditto "$source_app" "$BUILD_DIR/$APP_NAME"
 }
 
-# Remove quarantine attributes
-remove_quarantine() {
-    log_step "Removing quarantine attributes..."
-
-    if [ -d "$BUILD_DIR/$APP_NAME" ]; then
-        xattr -d com.apple.quarantine "$BUILD_DIR/$APP_NAME" 2>/dev/null || true
-        log_info "✅ Quarantine attributes removed"
-    fi
-}
-
-# Ad-hoc sign (free). Apple Silicon refuses fully unsigned binaries ("damaged").
-# keychain-access-groups is restricted and would get an ad-hoc app killed at launch.
 adhoc_sign() {
-    log_step "Ad-hoc signing app..."
-
-    local ent="$BUILD_DIR/adhoc.entitlements"
-    cp mindmic/mindmic.entitlements "$ent"
-    /usr/libexec/PlistBuddy -c "Delete :keychain-access-groups" "$ent" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Delete :com.apple.security.temporary-exception.mach-lookup.global-name" "$ent" 2>/dev/null || true
-
-    codesign --force --deep --sign - --entitlements "$ent" "$BUILD_DIR/$APP_NAME"
-    codesign --verify --deep --strict "$BUILD_DIR/$APP_NAME"
-    log_info "✅ App ad-hoc signed"
+    log_step "Preparing free distribution signature..."
+    python3 .github/scripts/sign-adhoc.py "$BUILD_DIR/$APP_NAME" mindmic/mindmic.entitlements
+    python3 .github/scripts/verify-release.py "$BUILD_DIR/$APP_NAME"
 }
 
 # Create DMG
@@ -150,7 +114,7 @@ create_dmg() {
     mkdir -p "$DMG_FOLDER"
 
     # Copy app to DMG folder
-    cp -R "$BUILD_DIR/$APP_NAME" "$DMG_FOLDER/"
+    ditto "$BUILD_DIR/$APP_NAME" "$DMG_FOLDER/$APP_NAME"
 
     # Create Applications folder symlink
     ln -s /Applications "$DMG_FOLDER/Applications"
@@ -162,12 +126,12 @@ MindMic Installation Instructions
 ⚠️  IMPORTANT: This is an unsigned application
 
 macOS will show a security warning when you first try to open MindMic.
-This is normal for unsigned applications.
+The expected message says Apple cannot verify the developer. Other alerts need investigation.
 
 HOW TO INSTALL:
 1. Drag MindMic.app to your Applications folder
 2. Open MindMic once, click Done, then System Settings > Privacy & Security > "Open Anyway"
-3. If macOS says "damaged": xattr -dr com.apple.quarantine /Applications/MindMic.app
+3. If macOS says "damaged" or "contains malware", stop and report the message.
 4. Grant microphone and screen recording permissions when prompted
 
 FOR MORE HELP:
@@ -279,7 +243,7 @@ display_info() {
 
     log_info "📋 Distribution Information:"
     log_info "  - Version: $VERSION"
-    log_info "  - Build: Unsigned (no code signing)"
+    log_info "  - Build: Ad-hoc signed (not notarized)"
     log_info "  - Architecture: ARM64 (Apple Silicon)"
     log_info "  - Minimum macOS: 14.0"
     echo
@@ -309,7 +273,6 @@ main() {
     clean_build
     build_archive
     export_app
-    remove_quarantine
     adhoc_sign
     create_dmg
     generate_checksums

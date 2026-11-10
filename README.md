@@ -47,10 +47,15 @@
 
 ### Installation
 
-1. **Download the latest version** from [GitHub Releases](https://github.com/rohitctrl/mindmic.app/releases)
-2. **Open the downloaded `.dmg` file**
-3. **Drag MindMic to your Applications folder**
-4. **Launch the app** from Applications or Launchpad
+```bash
+brew install --cask rohitctrl/tap/mindmic
+```
+
+On first launch, open MindMic, then use **System Settings → Privacy & Security →
+Open Anyway**. MindMic is free and ad-hoc signed, without Apple notarization.
+
+You can also download the DMG from [GitHub Releases](https://github.com/rohitctrl/mindmic.app/releases/latest).
+See the [installation guide](INSTALLATION.md) for upgrades and troubleshooting.
 
 ### First Run Setup
 
