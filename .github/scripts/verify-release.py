@@ -24,7 +24,7 @@ for path in [app, *app.rglob("*")]:
         with path.open("rb") as handle:
             if handle.read(4) not in {b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xca\xfe\xba\xbf"}:
                 continue
-    result = subprocess.run(["codesign", "--display", "--entitlements", "-", str(path)], capture_output=True)
+    result = subprocess.run(["codesign", "--display", "--entitlements", "-", "--xml", str(path)], capture_output=True)
     if result.stdout.strip():
         ent = plistlib.loads(result.stdout)
         forbidden = [key for key in ent if key.startswith("com.apple.developer.") or key in {

@@ -31,7 +31,7 @@ def entitlements(path):
     if path == app:
         return plistlib.loads(source_entitlements.read_bytes())
     result = subprocess.run(
-        ["codesign", "--display", "--entitlements", "-", str(path)],
+        ["codesign", "--display", "--entitlements", "-", "--xml", str(path)],
         capture_output=True,
     )
     return plistlib.loads(result.stdout) if result.stdout.strip() else {}
