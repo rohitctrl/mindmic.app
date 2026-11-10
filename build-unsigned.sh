@@ -14,7 +14,7 @@ BUILD_DIR="build-unsigned"
 ARCHIVE_PATH="$BUILD_DIR/$PROJECT_NAME.xcarchive"
 APP_NAME="MindMic.app"
 DMG_NAME="MindMic"
-VERSION="2.0"
+VERSION="${VERSION:-2.0.5}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -75,7 +75,10 @@ build_archive() {
         -archivePath "$ARCHIVE_PATH" \
         -destination "generic/platform=macOS" \
         ONLY_ACTIVE_ARCH=NO \
-        VALID_ARCHS="arm64" \
+        ARCHS=arm64 \
+        VALID_ARCHS=arm64 \
+        MARKETING_VERSION="$VERSION" \
+        CURRENT_PROJECT_VERSION="$(date +%s)" \
         CODE_SIGN_IDENTITY="" \
         CODE_SIGNING_REQUIRED=NO \
         CODE_SIGNING_ALLOWED=NO \

@@ -242,6 +242,14 @@ jobs:
             "file://$PWD/artifacts/$(jq -r .dmg_name artifacts/release-info.json)"
           brew install --cask local/mindmic-ci/mindmic
           python3 .github/scripts/verify-release.py /Applications/MindMic.app
+      - name: Record Gatekeeper assessment before approval
+        run: |
+          # An ad-hoc release is expected to require approval. Keep the assessment
+          # as evidence separately from signature integrity and runtime startup.
+          set +e
+          spctl --assess --type execute --verbose=4 /Applications/MindMic.app > artifacts/gatekeeper.log 2>&1
+          echo "Assessment exit status: $?" >> artifacts/gatekeeper.log
+          cat artifacts/gatekeeper.log
       - name: Check launch after first-open approval
         run: |
           # Headless CI cannot click Open Anyway. Removing quarantine here models
@@ -263,7 +271,9 @@ jobs:
         if: always()
         with:
           name: launch-${{ matrix.os }}
-          path: artifacts/launch.log
+          path: |
+            artifacts/launch.log
+            artifacts/gatekeeper.log
 
   publish:
     needs: [build-unsigned, verify-install]
@@ -308,9 +318,29 @@ jobs:
           VERSION=$(jq -r .version artifacts/release-info.json)
           python3 .github/scripts/render-cask.py artifacts/release-info.json tap/Casks/mindmic.rb
           ruby -c tap/Casks/mindmic.rb
+          cat > tap/README.md <<'README'
+          # MindMic Homebrew tap
+
+          Free voice transcription for Apple Silicon Macs (M1 or newer), macOS 14 or later.
+
+          ```bash
+          brew install --cask rohitctrl/tap/mindmic
+          ```
+
+          On first launch, open MindMic, then go to **System Settings > Privacy & Security > Open Anyway**.
+          MindMic is ad-hoc signed and not notarized by Apple. Grant microphone access when prompted.
+          A "contains malware" or "damaged" alert is not the expected approval prompt; report it.
+
+          To upgrade, run `brew update` then `brew upgrade --cask rohitctrl/tap/mindmic`.
+          If macOS moved an old copy to the Bin, use `brew reinstall --cask rohitctrl/tap/mindmic`.
+
+          [Installation guide](https://github.com/rohitctrl/mindmic.app/blob/main/INSTALLATION.md)
+          · [Report an app problem](https://github.com/rohitctrl/mindmic.app/issues)
+          · [Report a cask problem](https://github.com/rohitctrl/homebrew-tap/issues)
+          README
           git -C tap config user.email "action@github.com"
           git -C tap config user.name "GitHub Action"
-          git -C tap add Casks/mindmic.rb
+          git -C tap add Casks/mindmic.rb README.md
           git -C tap commit -m "Update MindMic to $VERSION with verified free signing"
           git -C tap push
       - name: Verify published cask download and signature
