@@ -16,7 +16,9 @@ if release["dmg_name"] != name:
 url = sys.argv[3] if len(sys.argv) > 3 else f"https://github.com/rohitctrl/mindmic.app/releases/download/v{version}/{name}"
 if any(c in url for c in '\n\r"\\'):
     raise SystemExit("Invalid cask URL")
-pathlib.Path(sys.argv[2]).write_text(f'''cask "mindmic" do
+destination = pathlib.Path(sys.argv[2])
+destination.parent.mkdir(parents=True, exist_ok=True)
+destination.write_text(f'''cask "mindmic" do
   version "{version}"
   sha256 "{sha}"
 
